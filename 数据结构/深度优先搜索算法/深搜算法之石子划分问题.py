@@ -16,7 +16,6 @@
 以00…00（均不选中），00…01（只选中第n堆石子），00…10（只选中第n－1堆石子），
 00…11（选中第n－1堆和第n堆石子），00…100（选中第n－2堆石子），
 00…101（选中第n－2堆和第n堆石子），11…11（选中所有n堆石子）。
-
 算法分析：
 本题算法思想与“广搜算法之翻转棋子游戏”如出一辙。
 初看本题，最容易想到的是穷举法，用包含n个元素的列表b分别表示堆石子的选择状态，b[i]=1表示选择第i堆石子，b[i]=0表示不选择。
@@ -31,6 +30,10 @@
 回到最初的想法，我们使用列表b来表示整数t的二进制数的每一位，是很直观的想法，只不过每次都需要把整数转化成二进制数比较耗费时间；
 其实我们可以直接修改列表b的值来模拟整数t递增的过程，这样就不需要引入整数t及其位运算了，数据结构更清晰。
 我也用这种数据结构实现了穷举和深搜两种算法。
+进一步思考：当石子堆数量n太大时，对应的n位二进制数太大了，用穷举法和回溯法都不适合；
+因为我们对每个石子堆的操作都是选择或者不选择，所以本题可以当做一个0-1背包问题来解决（当然石子的总数不能太大，否则需要太大的空间），
+我们可以把背包的容量用石子总量的一半half来代替，物品的质量和价值都用每堆石子的数量来代替，最大价值就是不超过half的石子数量，
+这样就可以套用0-1背包问题的基本模型来解决本题。
 '''
 
 #将整数t的n位二进制数存储到列表d
@@ -142,18 +145,91 @@ def dfs_2(a, b, s):
                 b[i] = 0     #将整数t的第i个二进制位恢复成0
         else:
             break
-           
+
+
+#记忆化搜索（备忘录算法）求0-1背包问题，b[n][c]初始化为0 
+def dfs_3(n, c):
+    global b
+    if b[n][c] != 0:
+        return b[n][c]
+
+    max_s = 0
+    if n == 1: #处理只给定了1堆石子的情形 
+        if c >=  a[n-1]:
+            max_s = a[n-1]
+    else:
+        if c < a[n-1]: #若装不下，则不装第n堆石子
+            max_s = dfs_3(n-1, c)
+        else:  #如果装得下，从装和不装两者中取最大值 
+            max_s = max(dfs_3(n-1, c), dfs_3(n-1, c-a[n-1]) + a[n-1])
+    b[n][c] = max_s
+    return b[n][c]
+
+
+def show(b, n, c): #利用列表b，输出选择石子堆情况
+    d = [0] * n
+    for i in range(n, 0, -1):
+        if b[i][c] == b[i-1][c-a[i-1]] + a[i-1]: #装载了第i堆石子
+            d[i-1] = 1
+            c -= a[i-1]
+    s1, s2 = 0, 0
+    for i in range(len(d)):
+        if d[i] == 0:
+            s1 += a[i]
+        else:
+            s2 += a[i]
+    print(s1, s2, d)
+
+#动态规划：二维列表存储记录，b[i][j]初始化为0 
+def dp_1(n, c):
+    b = [[0 for i in range(total+1)] for i in range(n+1)]
+    for i in range(1, n+1): #记录前i(1<=i<=n)堆石子装入容量为1-c的背包的最大价值（石子数量）
+        for j in range(1, a[i-1]): #背包容量不够，不能装下第i堆石子
+            b[i][j] = b[i-1][j]
+        for j in range(a[i-1], c+1): #背包容量足够，可以选择装或不装第i堆石子
+            b[i][j] = max(b[i-1][j], b[i-1][j-a[i-1]] + a[i-1])
+
+    show(b, n, half)
+    return total - b[n][c] * 2 #返回最小差值
+
+#动态规划：优化的动态规划算法，使用2个一维列表代替二维列表，pre[j]和cur[j]均初始化为0 
+def dp_2(n, c):
+    #pre[j]相当于dp_1()中的b[i-1][j]，cur[j]相当于b[i][j] 
+    pre = [0] * (total + 1)
+    cur = [0] * (total + 1)
+    for i in range(1, n+1): #记录前i(1<=i<=n)堆石子装入容量为1-c的背包的最大价值（石子数量）
+        for j in range(1, c+1):  #背包容量不够或不装更好，不选择第i堆石子
+            if j < a[i-1] or pre[j] > pre[j-a[i-1]] + a[i-1]:
+                cur[j] = pre[j]
+            else: #背包容量足够且选择第i堆石子有更优解
+                cur[j] = pre[j-a[i-1]] + a[i-1]
+        for j in range(1, c+1): #复制上一行的数据到当前行 
+            pre[j] = cur[j]
+
+    return total - cur[c] * 2 #返回最小差值
+
+#动态规划：优化的动态规划算法，一维列表存储记录，f[j]初始化为0  
+def dp_3(n, c):
+    f = [0] * (total + 1)
+    for i in range(1, n+1): #记录前i(1<=i<=n)堆石子装入容量为1-c的背包的最大价值（石子数量）
+        for j in range(c, a[i-1]-1, -1):  #须先求出列坐标j较大的F[j]，故让循环变量j的值从大到小递减
+            if f[j] < f[j-a[i-1]] + a[i-1]: #当(j < a[i-1] or f[j] >= f[j-a[i-1]] + a[i-1])时，f[j]的值不变
+                f[j] = f[j-a[i-1]] + a[i-1]
+
+    return total - f[c] * 2 #返回最小差值
+
 
 with open('szhf.txt', 'r') as fin:
     for line in fin.readlines():
         print(line.strip())#依次读取每行
         a = list(map(int, line.strip().split(",")))
         total = sum(a)
-        half = total / 2
+        half = total // 2
+
         print(divide_stones_0(a))
         print(divide_stones_1(a))
         print(divide_stones_2(a))
-        
+
         max_s, ans = 0, 0
         lib = tuple(map(lambda x: 1 << x, range(len(a)-1,-1,-1)))#从高到低标记每个二进制位的1
         dfs_1(a, 0, 0)
@@ -167,3 +243,13 @@ with open('szhf.txt', 'r') as fin:
         dfs_2(a, b, 0)
         print(ans)
         print(total - max_s * 2)
+
+      
+        b = [[0 for i in range(total+1)] for i in range(len(a)+1)]
+        max_s = dfs_3(len(a), half)
+        show(b, len(a), half)
+        print(total - max_s * 2)
+
+        print(dp_1(len(a), half))
+        print(dp_2(len(a), half))
+        print(dp_3(len(a), half))
