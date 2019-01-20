@@ -22,6 +22,39 @@ def LSS_length_1(n, m):
                     max_len, end_pos = c, j + c
     return (max_len, end_pos)
 
+#穷举法：x不动，y从左向右逐个移动比较，把移动过程分为两个阶段
+def LSS_length_1(n, m):
+    #最大长度和子串的末端索引（按照左闭右开原则，实际上该索引对应的元素取不到）
+    max_len, end_pos = 0, 0
+    #可以把移动过程分为两个阶段：y的左端与x左端对齐之前，和对齐之后
+    #从y的右端与x左端对齐，直到y的左端与x左端将要对齐
+    start_x, start_y = 0, m - 1 #x和y的起始比较位置
+    while start_y > 0: 
+        cover_len = min(n, m - start_y) #字符串重叠部分长度
+        c = 0 
+        for j in range(cover_len): #遍历重叠部分
+            if x[start_x+j] == y[start_y+j]: #统计连续子串长度
+                c += 1  
+            else:    
+                if max_len < c:  #更新最大长度和子串的末端索引
+                    max_len, end_pos = c, start_y+j
+                c = 0
+        start_y -= 1 #y的起始比较位置左移
+    #从y的左端与x左端对齐，直到y的左端与x右端对齐
+    start_x, start_y = 0, 0 #x和y的起始比较位置
+    while start_x < n: 
+        cover_len = min(n - start_x, m) #字符串重叠部分长度
+        c = 0 
+        for j in range(cover_len): #遍历重叠部分
+            if x[start_x+j] == y[start_y+j]: #统计连续子串长度
+                c += 1  
+            else:    
+                if max_len < c:  #更新最大长度和子串的末端索引
+                    max_len, end_pos = c, start_y+j
+                c = 0
+        start_x += 1 #x的起始比较位置右移
+    return (max_len, end_pos)
+
 #穷举法：x不动，y从左向右逐个移动比较，只需二重循环，移动n+m步，效率有所提高
 def LSS_length_2(n, m):
     #最大长度和子串的末端索引（按照左闭右开原则，实际上该索引对应的元素取不到）
